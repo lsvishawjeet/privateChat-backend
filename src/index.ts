@@ -15,7 +15,8 @@ const app = express();
 app.use(express.json())
 
 // Create single server for both HTTP and WebSocket
-let httpsServer = app.listen(port);
+// Listen on 0.0.0.0 to accept connections from any IP (required for Fly.io)
+let httpsServer = app.listen(port, '0.0.0.0');
 
 console.log(os.cpus().length)
 
