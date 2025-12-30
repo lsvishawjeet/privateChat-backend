@@ -9,12 +9,13 @@ import { ConnectedUser } from './model/dataModes';
 import { validateToken } from './utils/validations';
 import { createUserController, getUserController, getAllUsersController } from './controller/userController';
 
-const port = 4003;
-const webSocketPort = 4001;
+// Use PORT from environment (Fly.io sets this), fallback to 8080
+const port = parseInt(process.env.PORT || '8080', 10);
 const app = express();
 app.use(express.json())
 
-let httpsServer = app.listen(webSocketPort);
+// Create single server for both HTTP and WebSocket
+let httpsServer = app.listen(port);
 
 console.log(os.cpus().length)
 
@@ -181,7 +182,6 @@ const sendMessage = (userMessage: any, senderSocketId: string) => {
 	return { success: false, message: "Failed to send message" };
 }
 
-app.listen(port, () => {
-	console.log(`app is working on port ${port}`);
-})
+// Remove duplicate app.listen - already listening above with httpsServer
+console.log(`Server is running on port ${port}`);
 
