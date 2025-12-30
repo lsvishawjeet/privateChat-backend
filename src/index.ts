@@ -20,6 +20,20 @@ let httpsServer = app.listen(port, '0.0.0.0');
 
 console.log(os.cpus().length)
 
+app.get('/', (req, res) => {
+	res.status(200).json({ 
+		success: true, 
+		message: "Private Chat API is running",
+		endpoints: {
+			health: '/health',
+			signup: 'POST /auth/signup',
+			login: 'POST /auth/login',
+			users: 'GET /user/all',
+			websocket: 'ws://[host]/ws?token=[your-token]'
+		}
+	});
+});
+
 app.get('/health', (req, res) => {
 	res.status(200).json({ success: true, message: "Server is healthy" });
 });
