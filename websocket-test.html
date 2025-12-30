@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App - WebSocket Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            width: auto;
+            margin-right: 10px;
+        }
+        button:hover { background: #0056b3; }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .message { margin: 5px 0; padding: 5px; }
+        .sent { background: #e3f2fd; }
+        .received { background: #fff3cd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Chat App WebSocket Test Client</h1>
+        
+        <div class="section">
+            <h3>Connection Status</h3>
+            <div id="status" class="status disconnected">Disconnected</div>
+            <input type="text" id="wsUrl" value="ws://localhost:4001/ws" placeholder="WebSocket URL">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+
+        <div class="section">
+            <h3>Authentication</h3>
+            <input type="text" id="token" placeholder="Enter your JWT token here (required before connecting)">
+            <small>Get token from POST /auth/login endpoint. Token will be sent in connection URL.</small>
+        </div>
+
+        <div class="section">
+            <h3>Actions</h3>
+            <button onclick="getOnlineUsers()">Get Online Users</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+
+        <div class="section">
+            <h3>Send Message</h3>
+            <input type="text" id="receiverId" placeholder="Receiver User ID">
+            <textarea id="messageText" rows="3" placeholder="Your message..."></textarea>
+            <button onclick="sendMessage()">Send Message</button>
+        </div>
+
+        <div class="section">
+            <h3>Messages</h3>
+            <div id="messages"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function connect() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert('Please enter a JWT token first');
+                return;
+            }
+            
+            const wsUrl = document.getElementById('wsUrl').value;
+            const url = `${wsUrl}?token=${encodeURIComponent(token)}`;
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                updateStatus('Connected', true);
+                addMessage('System', 'Connected to WebSocket server', 'received');
+            };
+
+            ws.onclose = () => {
+                updateStatus('Disconnected', false);
+                addMessage('System', 'Disconnected from server', 'received');
+            };
+
+            ws.onerror = (error) => {
+                addMessage('Error', `WebSocket error: ${error}`, 'received');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                addMessage('Server', JSON.stringify(data, null, 2), 'received');
+            };
+        }
+
+        function getOnlineUsers() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Not connected to WebSocket');
+                return;
+            }
+
+            const message = {
+                action: 'get_online_users'
+            };
+
+            ws.send(JSON.stringify(message));
+            addMessage('You', JSON.stringify(message, null, 2), 'sent');
+        }
+
+        function sendMessage() {
+            const receiverId = document.getElementById('receiverId').value;
+            const messageText = document.getElementById('messageText').value;
+
+            if (!receiverId) {
+                alert('Please enter receiver ID');
+                return;
+            }
+            if (!messageText) {
+                alert('Please enter a message');
+                return;
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('Not connected to WebSocket');
+                return;
+            }
+
+            const message = {
+                action: 'send_message',
+                receiverId: receiverId,
+                data: {
+                    message: messageText,
+                    currentDate: new Date().toISOString()
+                }
+            };
+
+            ws.send(JSON.stringify(message));
+            addMessage('You', JSON.stringify(message, null, 2), 'sent');
+            document.getElementById('messageText').value = '';
+        }
+
+        function addMessage(sender, text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            messageDiv.innerHTML = `<strong>${sender}:</strong><br><pre>${text}</pre>`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        // Auto-connect on page load
+        window.onload = () => {
+            // connect();
+        };
+    </script>
+</body>
+</html>
