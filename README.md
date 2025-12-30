@@ -245,7 +245,7 @@ Send a message to a specific user.
 ## Project Structure
 
 ```
-17Dec/
+privateChat/
 ├── src/
 │   ├── controller/
 │   │   └── userController.ts
