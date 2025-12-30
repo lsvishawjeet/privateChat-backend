@@ -8,6 +8,7 @@ import WebSocket, { WebSocketServer } from 'ws'
 import { ConnectedUser } from './model/dataModes';
 import { validateToken } from './utils/validations';
 import { createUserController, getUserController, getAllUsersController } from './controller/userController';
+import { send } from 'process';
 
 // Use PORT from environment (Fly.io sets this), fallback to 8080
 const port = parseInt(process.env.PORT || '8080', 10);
@@ -68,6 +69,7 @@ Flow of app:
 
 let connectedUsers:ConnectedUser[] = [];
 const wsConnections = new Map<string, WebSocket>();
+let pendingMessagesStore: any[] = [];
 
 wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
 	const socketId = crypto.randomUUID();
@@ -113,6 +115,9 @@ wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
 		message: "Connected and authenticated",
 		userId 
 	}));
+
+	//send any pending messages to this user
+	sendPendingMessages(userId, ws);
 
 	// At this point we have users stored in connected users
 	
@@ -177,7 +182,13 @@ const sendMessage = (userMessage: any, senderSocketId: string) => {
 	const receiver = connectedUsers.find(u => u.userId == receiverId);
 
 	if(!receiver){
-		return { success: false, message: "Receiver is not online" };
+		//receiver is offline, store message for later delivery
+		pendingMessagesStore.push({
+			senderId: senderId,
+			receiverId: receiverId,
+			data: userMessage.data
+		});
+		return { success: true, message: "Receiver is offline, message will be delivered when they connect" };
 	}
 
 	//receivers websocket connection
@@ -195,6 +206,22 @@ const sendMessage = (userMessage: any, senderSocketId: string) => {
 		return { success: true, message: "Message sent" };
 	}
 	return { success: false, message: "Failed to send message" };
+}
+
+const sendPendingMessages = (userId: string, ws: WebSocket) => {
+	const pendingMessages = pendingMessagesStore.filter((msg: any) => msg.receiverId === userId);
+			pendingMessages.forEach((msg: any) => {
+				ws.send(JSON.stringify({
+					success: true,
+					action: 'new_message',
+					sender: msg.senderId,
+					type: msg.data.type,
+					message: msg.data.message,
+					messageTime: msg.data.currentDate
+				}));
+			});
+			//remove sent messages from pending store
+			pendingMessagesStore= pendingMessagesStore.filter((msg: any) => msg.receiverId !== userId);
 }
 
 // Remove duplicate app.listen - already listening above with httpsServer
